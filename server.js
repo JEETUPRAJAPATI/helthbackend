@@ -36,7 +36,7 @@ const corsOptions = {
     if (!origin) return callback(null, true);
     
     const allowedOrigins = [
-      process.env.FRONTEND_URL,
+      ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(url => url.trim()) : []),
       'http://localhost:3000',
       'http://localhost:3001',
       'http://127.0.0.1:3000',
@@ -45,6 +45,8 @@ const corsOptions = {
       'http://10.0.2.2:3000',
       'http://192.168.1.4:8081',
       'http://192.168.1.4:3001',
+      'https://apiwellness.shrawantravels.com',
+      'http://apiwellness.shrawantravels.com',
       'exp://localhost:8081',
       'exp://10.0.2.2:8081',
       'exp://192.168.1.4:8081'
