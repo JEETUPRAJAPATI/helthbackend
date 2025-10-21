@@ -42,20 +42,10 @@ const userRegisterSchema = Joi.object({
   
   password: Joi.string()
     .min(6)
-    .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
     .required()
     .messages({
       'string.min': 'Password must be at least 6 characters long',
-      'string.pattern.base': 'Password must contain at least one uppercase letter, one lowercase letter, and one number',
       'string.empty': 'Password is required'
-    }),
-  
-  confirmPassword: Joi.string()
-    .valid(Joi.ref('password'))
-    .required()
-    .messages({
-      'any.only': 'Passwords do not match',
-      'string.empty': 'Confirm password is required'
     }),
   
   dateOfBirth: Joi.date()
@@ -69,11 +59,20 @@ const userRegisterSchema = Joi.object({
 
 // Expert registration validation
 const expertRegisterSchema = Joi.object({
+  // Accept either fullName OR firstName/lastName
+  fullName: Joi.string()
+    .trim()
+    .min(2)
+    .max(100)
+    .messages({
+      'string.empty': 'Full name is required',
+      'string.min': 'Full name must be at least 2 characters long'
+    }),
+    
   firstName: Joi.string()
     .trim()
     .min(2)
     .max(50)
-    .required()
     .messages({
       'string.empty': 'First name is required',
       'string.min': 'First name must be at least 2 characters long'
@@ -83,7 +82,6 @@ const expertRegisterSchema = Joi.object({
     .trim()
     .min(2)
     .max(50)
-    .required()
     .messages({
       'string.empty': 'Last name is required',
       'string.min': 'Last name must be at least 2 characters long'
@@ -107,18 +105,10 @@ const expertRegisterSchema = Joi.object({
   
   password: Joi.string()
     .min(6)
-    .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
     .required()
     .messages({
       'string.min': 'Password must be at least 6 characters long',
-      'string.pattern.base': 'Password must contain at least one uppercase letter, one lowercase letter, and one number'
-    }),
-  
-  confirmPassword: Joi.string()
-    .valid(Joi.ref('password'))
-    .required()
-    .messages({
-      'any.only': 'Passwords do not match'
+      'string.empty': 'Password is required'
     }),
   
   specialization: Joi.string()
@@ -135,7 +125,7 @@ const expertRegisterSchema = Joi.object({
     .integer()
     .min(0)
     .max(50)
-    .required()
+    .optional()
     .messages({
       'number.base': 'Experience must be a number',
       'number.min': 'Experience cannot be negative',
@@ -165,8 +155,7 @@ const expertRegisterSchema = Joi.object({
         year: Joi.number().integer().min(1950).max(new Date().getFullYear()).required()
       })
     )
-    .min(1)
-    .required()
+    .optional()
     .messages({
       'array.min': 'At least one qualification is required'
     }),
@@ -178,6 +167,14 @@ const expertRegisterSchema = Joi.object({
   consultationMethods: Joi.array()
     .items(Joi.string().valid('video', 'audio', 'chat', 'in-person'))
     .optional()
+}).custom((value, helpers) => {
+  // Custom validation: require either fullName OR (firstName AND lastName)
+  if (!value.fullName && (!value.firstName || !value.lastName)) {
+    return helpers.error('any.custom', {
+      message: 'Either fullName or both firstName and lastName are required'
+    });
+  }
+  return value;
 });
 
 // Login validation
@@ -426,9 +423,10 @@ const updateExpertProfileSchema = Joi.object({
   }).optional()
 });
 
-// Validation middleware
+// Validation middleware with FormData support
 const validate = (schema) => {
   return (req, res, next) => {
+    // Use req.body for validation, which should work for both JSON and parsed FormData
     const { error } = schema.validate(req.body, { abortEarly: false });
     if (error) {
       const errors = error.details.map(detail => detail.message);
@@ -442,6 +440,27 @@ const validate = (schema) => {
   };
 };
 
+// Flexible validation for registration that can handle both JSON and FormData
+const validateUserRegistration = (req, res, next) => {
+  // Parse data from either JSON body or FormData
+  let userData = {};
+  
+  if (req.body) {
+    userData = req.body;
+  }
+  
+  const { error } = userRegisterSchema.validate(userData, { abortEarly: false });
+  if (error) {
+    const errors = error.details.map(detail => detail.message);
+    return res.status(400).json({
+      success: false,
+      message: 'Validation error',
+      errors: errors
+    });
+  }
+  next();
+};
+
 module.exports = {
   userRegisterSchema,
   expertRegisterSchema,
@@ -452,5 +471,6 @@ module.exports = {
   changePasswordSchema,
   updateProfileSchema,
   updateExpertProfileSchema,
-  validate
+  validate,
+  validateUserRegistration
 };

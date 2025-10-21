@@ -50,35 +50,31 @@ const expertSchema = new mongoose.Schema({
   },
   experience: {
     type: Number,
-    required: [true, 'Years of experience is required'],
+    default: 0,
     min: [0, 'Experience cannot be negative']
   },
   qualifications: [{
     degree: {
-      type: String,
-      required: true
+      type: String
     },
     institution: {
       type: String,
-      required: true
+      default: 'Not specified'
     },
     year: {
       type: Number,
-      required: true
+      default: new Date().getFullYear()
     }
   }],
   certifications: [{
     name: {
-      type: String,
-      required: true
+      type: String
     },
     issuingOrganization: {
-      type: String,
-      required: true
+      type: String
     },
     issueDate: {
-      type: Date,
-      required: true
+      type: Date
     },
     expiryDate: {
       type: Date
@@ -92,6 +88,23 @@ const expertSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  documents: [{
+    filename: {
+      type: String
+    },
+    originalName: {
+      type: String
+    },
+    type: {
+      type: String,
+      enum: ['certificate', 'license', 'degree', 'other'],
+      default: 'certificate'
+    },
+    uploadDate: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   hourlyRate: {
     type: Number,
     min: [0, 'Hourly rate cannot be negative']
@@ -118,11 +131,11 @@ const expertSchema = new mongoose.Schema({
   // Verification and approval
   isEmailVerified: {
     type: Boolean,
-    default: false
+    default: true
   },
   isPhoneVerified: {
     type: Boolean,
-    default: false
+    default: true
   },
   isProfileComplete: {
     type: Boolean,
@@ -131,7 +144,7 @@ const expertSchema = new mongoose.Schema({
   verificationStatus: {
     type: String,
     enum: ['pending', 'under_review', 'approved', 'rejected'],
-    default: 'pending'
+    default: 'approved'
   },
   verificationNotes: {
     type: String

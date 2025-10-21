@@ -12,6 +12,7 @@ const {
   changePassword,
   updateProfile
 } = require('../controllers/authController');
+const { unifiedLogin } = require('../controllers/unifiedAuthController');
 const { protect } = require('../middlewares/auth');
 const { uploadProfileImage, handleUploadError } = require('../middlewares/upload');
 const {
@@ -22,7 +23,8 @@ const {
   otpVerificationSchema,
   changePasswordSchema,
   updateProfileSchema,
-  validate
+  validate,
+  validateUserRegistration
 } = require('../utils/validation');
 
 const router = express.Router();
@@ -66,6 +68,13 @@ router.post('/register',
 );
 
 router.post('/login', 
+  authLimiter,
+  validate(loginSchema),
+  unifiedLogin
+);
+
+// Keep original login as backup
+router.post('/user-login', 
   authLimiter,
   validate(loginSchema),
   loginUser

@@ -138,11 +138,13 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('Server running in', process.env.NODE_ENV, 'mode on port', PORT);
   console.log('Health check: http://localhost:' + PORT + '/health');
+  console.log('Health check (network): http://192.168.1.3:' + PORT + '/health');
   console.log('API Documentation: http://localhost:' + PORT + '/');
   console.log('Auth API: http://localhost:' + PORT + '/api/auth');
+  console.log('Auth API (network): http://192.168.1.3:' + PORT + '/api/auth');
   console.log('Expert API: http://localhost:' + PORT + '/api/experts');
   console.log('Uploads: http://localhost:' + PORT + '/uploads');
 });

@@ -8,6 +8,9 @@ const { sendOTPEmail, sendPasswordResetEmail, sendWelcomeEmail } = require('../u
 // @route   POST /api/auth/register
 // @access  Public
 const registerUser = asyncHandler(async (req, res) => {
+  console.log('=== USER REGISTRATION DEBUG ===');
+  console.log('Request body:', req.body);
+  
   const {
     firstName,
     lastName,
@@ -18,12 +21,27 @@ const registerUser = asyncHandler(async (req, res) => {
     gender
   } = req.body;
 
+  // Input validation
+  if (!firstName || !email || !phone || !password) {
+    console.log('Validation error: Missing required fields');
+    return res.status(400).json({
+      success: false,
+      message: 'Please provide all required fields: firstName, email, phone, password'
+    });
+  }
+
+  // If lastName is not provided, use firstName as lastName
+  const finalLastName = lastName || firstName;
+
+  console.log('Processing registration for:', { firstName, lastName: finalLastName, email, phone });
+
   // Check if user already exists
   const existingUser = await User.findOne({
     $or: [{ email }, { phone }]
   });
 
   if (existingUser) {
+    console.log('User already exists:', existingUser.email === email ? 'email' : 'phone');
     if (existingUser.email === email) {
       return res.status(400).json({
         success: false,
@@ -38,46 +56,89 @@ const registerUser = asyncHandler(async (req, res) => {
     }
   }
 
-  // Create user
-  const user = await User.create({
-    firstName,
-    lastName,
-    email,
-    phone,
-    password,
-    dateOfBirth,
-    gender,
-    userType: 'user'
-  });
+  try {
+    // Create user
+    console.log('Creating user with data:', {
+      firstName,
+      lastName: finalLastName,
+      email,
+      phone,
+      userType: 'user'
+    });
 
-  // Generate OTP for email verification
-  const otp = user.generateOTP();
-  await user.save();
+    const user = await User.create({
+      firstName,
+      lastName: finalLastName,
+      email,
+      phone,
+      password,
+      dateOfBirth,
+      gender,
+      userType: 'user'
+    });
 
-  // Send OTP email
-  const emailResult = await sendOTPEmail(email, otp, firstName);
-  
-  if (!emailResult.success) {
-    console.error('Failed to send OTP email:', emailResult.error);
-  }
+    console.log('User created successfully:', user._id);
 
-  // Generate tokens
-  const token = generateToken(user._id, user.userType);
-  const refreshToken = generateRefreshToken(user._id, user.userType);
+    // Generate OTP for email verification
+    const otp = user.generateOTP();
+    await user.save();
 
-  // Remove password from response
-  user.password = undefined;
+    console.log('OTP generated and user saved');
 
-  res.status(201).json({
-    success: true,
-    message: 'User registered successfully. Please verify your email with the OTP sent.',
-    data: {
-      user,
-      token,
-      refreshToken,
-      otpSent: emailResult.success
+    // Send OTP email
+    const emailResult = await sendOTPEmail(email, otp, firstName);
+    
+    if (!emailResult.success) {
+      console.error('Failed to send OTP email:', emailResult.error);
+    } else {
+      console.log('OTP email sent successfully');
     }
-  });
+
+    // Generate tokens
+    const token = generateToken(user._id, user.userType);
+    const refreshToken = generateRefreshToken(user._id, user.userType);
+
+    console.log('Tokens generated successfully');
+
+    // Remove password from response
+    user.password = undefined;
+
+    console.log('Registration completed successfully');
+
+    res.status(201).json({
+      success: true,
+      message: 'User registered successfully. Please verify your email with the OTP sent.',
+      data: {
+        user,
+        token,
+        refreshToken,
+        otpSent: emailResult.success
+      }
+    });
+  } catch (error) {
+    console.error('Error creating user:', error);
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(val => val.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: messages
+      });
+    }
+    
+    // Handle duplicate key error
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyValue)[0];
+      return res.status(400).json({
+        success: false,
+        message: `User with this ${field} already exists`
+      });
+    }
+    
+    throw error;
+  }
 });
 
 // @desc    Login user

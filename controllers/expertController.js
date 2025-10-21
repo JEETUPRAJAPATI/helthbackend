@@ -9,7 +9,12 @@ const { deleteFile, getFileUrl } = require('../middlewares/upload');
 // @route   POST /api/experts/register
 // @access  Public
 const registerExpert = asyncHandler(async (req, res) => {
+  console.log('=== EXPERT REGISTRATION DEBUG ===');
+  console.log('Request body:', req.body);
+  console.log('Request file:', req.file);
+  
   const {
+    fullName,
     firstName,
     lastName,
     email,
@@ -24,12 +29,59 @@ const registerExpert = asyncHandler(async (req, res) => {
     consultationMethods
   } = req.body;
 
+  // Handle fullName or firstName/lastName
+  let finalFirstName, finalLastName;
+  if (fullName) {
+    const nameParts = fullName.trim().split(' ');
+    finalFirstName = nameParts[0] || '';
+    finalLastName = nameParts.slice(1).join(' ') || finalFirstName;
+  } else {
+    finalFirstName = firstName || '';
+    finalLastName = lastName || finalFirstName;
+  }
+
+  // Detailed field validation logging
+  console.log('Field validation check:');
+  console.log('fullName:', fullName, 'finalFirstName:', finalFirstName, 'finalLastName:', finalLastName);
+  console.log('email:', email, 'type:', typeof email, 'valid:', !!email);
+  console.log('phone:', phone, 'type:', typeof phone, 'valid:', !!phone);
+  console.log('password:', password, 'type:', typeof password, 'valid:', !!password);
+  console.log('specialization:', specialization, 'type:', typeof specialization, 'valid:', !!specialization);
+
+  // Input validation - only require essential fields
+  if (!finalFirstName || !email || !phone || !password || !specialization) {
+    console.log('Validation error: Missing required fields');
+    const missingFields = [];
+    if (!finalFirstName) missingFields.push('fullName');
+    if (!email) missingFields.push('email');
+    if (!phone) missingFields.push('phone');
+    if (!password) missingFields.push('password');
+    if (!specialization) missingFields.push('specialization');
+    console.log('Missing fields:', missingFields);
+    return res.status(400).json({
+      success: false,
+      message: `Please provide all required fields: ${missingFields.join(', ')}`
+    });
+  }
+
+  // If lastName is not provided, use firstName as lastName
+  const processedLastName = finalLastName || finalFirstName;
+
+  console.log('Processing expert registration for:', { 
+    firstName: finalFirstName, 
+    lastName: processedLastName, 
+    email, 
+    phone, 
+    specialization 
+  });
+
   // Check if expert already exists
   const existingExpert = await Expert.findOne({
     $or: [{ email }, { phone }]
   });
 
   if (existingExpert) {
+    console.log('Expert already exists:', existingExpert.email === email ? 'email' : 'phone');
     if (existingExpert.email === email) {
       return res.status(400).json({
         success: false,
@@ -44,62 +96,154 @@ const registerExpert = asyncHandler(async (req, res) => {
     }
   }
 
-  // Handle profile image
-  let profileImage = null;
-  if (req.file) {
-    profileImage = req.file.filename;
-  }
-
-  // Create expert
-  const expert = await Expert.create({
-    firstName,
-    lastName,
-    email,
-    phone,
-    password,
-    specialization,
-    experience: parseInt(experience),
-    bio,
-    hourlyRate: hourlyRate ? parseFloat(hourlyRate) : undefined,
-    qualifications: qualifications ? JSON.parse(qualifications) : [],
-    languages: languages ? JSON.parse(languages) : [],
-    consultationMethods: consultationMethods ? JSON.parse(consultationMethods) : ['video'],
-    profileImage,
-    userType: 'expert',
-    verificationStatus: 'pending'
-  });
-
-  // Generate OTP for email verification
-  const otp = expert.generateOTP();
-  await expert.save();
-
-  // Send OTP email
-  const emailResult = await sendOTPEmail(email, otp, firstName);
-  
-  if (!emailResult.success) {
-    console.error('Failed to send OTP email:', emailResult.error);
-  }
-
-  // Generate tokens
-  const token = generateToken(expert._id, expert.userType);
-  const refreshToken = generateRefreshToken(expert._id, expert.userType);
-
-  // Remove password from response and add profile image URL
-  expert.password = undefined;
-  if (expert.profileImage) {
-    expert.profileImage = getFileUrl(expert.profileImage, 'profiles');
-  }
-
-  res.status(201).json({
-    success: true,
-    message: 'Expert registered successfully. Please verify your email with the OTP sent. Your profile will be reviewed by our team.',
-    data: {
-      expert,
-      token,
-      refreshToken,
-      otpSent: emailResult.success
+  try {
+    // Handle profile image
+    let profileImage = null;
+    if (req.file) {
+      profileImage = req.file.filename;
+      console.log('Profile image uploaded:', profileImage);
     }
-  });
+
+    // Parse JSON fields safely
+    let parsedQualifications = [];
+    let parsedLanguages = [];
+    let parsedConsultationMethods = ['video']; // default
+
+    try {
+      if (qualifications && qualifications.trim()) {
+        // If it's a simple string, convert it to the expected format
+        if (typeof qualifications === 'string') {
+          try {
+            parsedQualifications = JSON.parse(qualifications);
+          } catch (e) {
+            // If it's not JSON, treat it as a simple qualification string
+            parsedQualifications = [{
+              degree: qualifications,
+              institution: 'Not specified',
+              year: new Date().getFullYear()
+            }];
+          }
+        } else {
+          parsedQualifications = qualifications;
+        }
+      }
+    } catch (e) {
+      console.log('Error parsing qualifications:', e.message);
+      parsedQualifications = []; // Set to empty array to avoid validation errors
+    }
+
+    try {
+      if (languages) {
+        parsedLanguages = typeof languages === 'string' ? JSON.parse(languages) : languages;
+      }
+    } catch (e) {
+      console.log('Error parsing languages:', e.message);
+    }
+
+    try {
+      if (consultationMethods) {
+        parsedConsultationMethods = typeof consultationMethods === 'string' ? JSON.parse(consultationMethods) : consultationMethods;
+      }
+    } catch (e) {
+      console.log('Error parsing consultationMethods:', e.message);
+    }
+
+    console.log('Creating expert with data:', {
+      firstName: finalFirstName,
+      lastName: processedLastName,
+      email,
+      phone,
+      specialization,
+      experience: experience ? parseInt(experience) : 0,
+      profileImage
+    });
+
+    console.log('=== FULL EXPERT DATA BEFORE CREATE ===');
+    const expertData = {
+      firstName: finalFirstName,
+      lastName: processedLastName,
+      email,
+      phone,
+      password,
+      specialization,
+      experience: experience ? parseInt(experience) : 0,
+      bio: bio || '',
+      hourlyRate: hourlyRate ? parseFloat(hourlyRate) : undefined,
+      profileImage,
+      userType: 'expert',
+      verificationStatus: 'approved',
+      isEmailVerified: true,
+      isPhoneVerified: true,
+      // Only add these arrays if they have valid content
+      ...(parsedQualifications.length > 0 && { qualifications: parsedQualifications }),
+      ...(parsedLanguages.length > 0 && { languages: parsedLanguages }),
+      ...(parsedConsultationMethods.length > 0 && { consultationMethods: parsedConsultationMethods })
+    };
+    console.log('Expert data object:', JSON.stringify(expertData, null, 2));
+
+    // Create expert with minimal required fields first
+    const expert = await Expert.create(expertData);
+
+    console.log('Expert created successfully:', expert._id);
+
+    // Skip OTP generation and email sending for immediate login
+    console.log('Skipping OTP - allowing immediate login');
+
+    // Generate tokens for immediate login
+    const token = generateToken(expert._id, expert.userType);
+    const refreshToken = generateRefreshToken(expert._id, expert.userType);
+
+    console.log('Tokens generated successfully');
+
+    // Remove password from response and add profile image URL
+    expert.password = undefined;
+    if (expert.profileImage) {
+      expert.profileImage = getFileUrl(expert.profileImage, 'profiles');
+    }
+
+    console.log('Expert registration completed successfully');
+
+    res.status(201).json({
+      success: true,
+      message: 'Expert registered successfully. You can now login immediately.',
+      data: {
+        expert,
+        token,
+        refreshToken,
+        canLoginImmediately: true
+      }
+    });
+  } catch (error) {
+    console.error('Error creating expert:', error);
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      console.log('=== VALIDATION ERROR DETAILS ===');
+      console.log('Full error:', error);
+      console.log('Error fields:', Object.keys(error.errors));
+      Object.keys(error.errors).forEach(field => {
+        console.log(`${field}: ${error.errors[field].message}`);
+      });
+      
+      const messages = Object.values(error.errors).map(val => val.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: messages
+      });
+    }
+    
+    // Handle duplicate key error
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyValue)[0];
+      return res.status(400).json({
+        success: false,
+        message: `Expert with this ${field} already exists`
+      });
+    }
+    
+    throw error;
+  }
 });
 
 // @desc    Login expert
@@ -108,18 +252,28 @@ const registerExpert = asyncHandler(async (req, res) => {
 const loginExpert = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
+  console.log('=== EXPERT LOGIN DEBUG ===');
+  console.log('Login attempt for email:', email);
+  console.log('Password provided:', !!password);
+
   // Find expert and include password field
   const expert = await Expert.findOne({ email }).select('+password');
 
   if (!expert) {
+    console.log('Expert not found for email:', email);
     return res.status(401).json({
       success: false,
       message: 'Invalid email or password'
     });
   }
 
+  console.log('Expert found:', expert.firstName, expert.lastName);
+  console.log('Expert isActive:', expert.isActive);
+  console.log('Expert verificationStatus:', expert.verificationStatus);
+
   // Check if account is locked
   if (expert.isLocked) {
+    console.log('Account is locked');
     return res.status(423).json({
       success: false,
       message: 'Account is temporarily locked due to too many failed login attempts. Please try again later.'
@@ -127,6 +281,7 @@ const loginExpert = asyncHandler(async (req, res) => {
   }
 
   if (!expert.isActive) {
+    console.log('Account is not active');
     return res.status(401).json({
       success: false,
       message: 'Your account has been deactivated. Please contact support.'
@@ -134,9 +289,12 @@ const loginExpert = asyncHandler(async (req, res) => {
   }
 
   // Check password
+  console.log('Checking password...');
   const isPasswordValid = await expert.matchPassword(password);
+  console.log('Password valid:', isPasswordValid);
 
   if (!isPasswordValid) {
+    console.log('Invalid password for email:', email);
     // Increment login attempts
     await expert.incLoginAttempts();
     
