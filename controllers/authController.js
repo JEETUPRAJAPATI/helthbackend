@@ -79,20 +79,14 @@ const registerUser = asyncHandler(async (req, res) => {
 
     console.log('User created successfully:', user._id);
 
-    // Generate OTP for email verification
-    const otp = user.generateOTP();
+    // Mark user as verified immediately (no OTP/email verification required)
+    user.isEmailVerified = true;
+    user.isPhoneVerified = true;
+    user.isActive = true;
+    user.passwordResetRequested = false;
+    // Save user without triggering OTP flows
     await user.save();
-
-    console.log('OTP generated and user saved');
-
-    // Send OTP email
-    const emailResult = await sendOTPEmail(email, otp, firstName);
-    
-    if (!emailResult.success) {
-      console.error('Failed to send OTP email:', emailResult.error);
-    } else {
-      console.log('OTP email sent successfully');
-    }
+    console.log('User created and marked as verified (no OTP required)');
 
     // Generate tokens
     const token = generateToken(user._id, user.userType);
@@ -107,12 +101,11 @@ const registerUser = asyncHandler(async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'User registered successfully. Please verify your email with the OTP sent.',
+      message: 'User registered successfully. You can now log in.',
       data: {
         user,
         token,
-        refreshToken,
-        otpSent: emailResult.success
+        refreshToken
       }
     });
   } catch (error) {
