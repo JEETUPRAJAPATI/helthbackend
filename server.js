@@ -16,9 +16,115 @@ const { errorHandler, notFound } = require('./middlewares/errorHandler');
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const expertRoutes = require('./routes/expertRoutes');
+const adminRoutes = require('./routes/admin/adminRoutes');
 
 // Connect to MongoDB
 connectDB();
+
+// Seed initial superadmin if env provided
+const seedInitialAdmin = async () => {
+  try {
+    const Admin = require('./models/Admin');
+    const email = process.env.INIT_ADMIN_EMAIL || process.env.ADMIN_EMAIL;
+    const name = process.env.INIT_ADMIN_NAME || process.env.ADMIN_NAME || 'Super Admin';
+    const password = process.env.INIT_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD;
+
+    if (!email || !password) return;
+
+    const existing = await Admin.findOne({ email });
+    if (existing) {
+      console.log('Initial admin already exists:', email);
+      return;
+    }
+
+      const admin = await Admin.create({ name, email, password, role: 'superadmin', isPrimary: true });
+      console.log('Seeded initial superadmin:', admin.email);
+  } catch (err) {
+    console.error('Failed to seed initial admin:', err.message);
+  }
+};
+
+seedInitialAdmin();
+
+  // In development, if no env-provided admin was seeded, create a demo admin for convenience
+  const seedDevDemoAdmin = async () => {
+    try {
+      if (process.env.NODE_ENV !== 'development') return;
+      const Admin = require('./models/Admin');
+      const demoEmail = 'admin@zenovia.com';
+      const demoPassword = 'admin123';
+
+      const existing = await Admin.findOne({ email: demoEmail });
+      if (existing) return;
+
+      const admin = await Admin.create({ name: 'Demo Admin', email: demoEmail, password: demoPassword, role: 'superadmin', isPrimary: false });
+      console.log('Seeded development demo admin:', admin.email);
+    } catch (err) {
+      console.error('Failed to seed dev demo admin:', err.message);
+    }
+  };
+
+  seedDevDemoAdmin();
+
+// Seed default permissions
+const seedDefaultPermissions = async () => {
+  try {
+    const Permission = require('./models/Permission');
+    
+    const defaultPermissions = [
+      { key: 'manage_users', label: 'Manage Users' },
+      { key: 'manage_experts', label: 'Manage Experts' },
+      { key: 'manage_admins', label: 'Manage Admins' },
+      { key: 'manage_bookings', label: 'Manage Bookings' },
+      { key: 'manage_payments', label: 'Manage Payments' },
+      { key: 'manage_subscriptions', label: 'Manage Subscriptions' },
+      { key: 'view_reports', label: 'View Reports' },
+      { key: 'manage_settings', label: 'Manage Settings' }
+    ];
+    
+    for (const perm of defaultPermissions) {
+      const existing = await Permission.findOne({ key: perm.key });
+      if (!existing) {
+        await Permission.create(perm);
+        console.log(`Seeded permission: ${perm.label}`);
+      }
+    }
+  } catch (err) {
+    console.error('Failed to seed default permissions:', err.message);
+  }
+};
+
+seedDefaultPermissions();
+
+// Seed default permissions
+const seedDefaultPermissions = async () => {
+  try {
+    const Permission = require('./models/Permission');
+    
+    const defaultPermissions = [
+      { key: 'manage_users', label: 'Manage Users' },
+      { key: 'manage_experts', label: 'Manage Experts' },
+      { key: 'manage_bookings', label: 'Manage Bookings' },
+      { key: 'manage_payments', label: 'Manage Payments' },
+      { key: 'view_reports', label: 'View Reports' },
+      { key: 'manage_settings', label: 'Manage Settings' },
+      { key: 'manage_admins', label: 'Manage Admins' },
+      { key: 'view_analytics', label: 'View Analytics' }
+    ];
+
+    for (const perm of defaultPermissions) {
+      const existing = await Permission.findOne({ key: perm.key });
+      if (!existing) {
+        await Permission.create(perm);
+        console.log(`Seeded permission: ${perm.key}`);
+      }
+    }
+  } catch (err) {
+    console.error('Failed to seed permissions:', err.message);
+  }
+};
+
+seedDefaultPermissions();
 
 const app = express();
 
@@ -116,6 +222,7 @@ app.get('/health', (req, res) => {
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/experts', expertRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Default route
 app.get('/', (req, res) => {
