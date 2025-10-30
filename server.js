@@ -149,6 +149,10 @@ const corsOptions = {
       'http://127.0.0.1:3001',
       'http://10.0.2.2:3001',
       'http://10.0.2.2:3000',
+      'http://192.168.1.3:8081',
+      'http://192.168.1.3:19000',
+      'http://192.168.1.3:19001',
+      'http://192.168.1.3:19002',
       'http://192.168.1.4:8081',
       'http://192.168.1.4:3001',
       'https://apiwellness.shrawantravels.com',
@@ -156,12 +160,24 @@ const corsOptions = {
       'https://adminwellness.shrawantravels.com',
       'http://adminwellness.shrawantravels.com',
       'exp://localhost:8081',
+      'exp://localhost:19000',
       'exp://10.0.2.2:8081',
+      'exp://192.168.1.3:8081',
+      'exp://192.168.1.3:19000',
       'exp://192.168.1.4:8081'
     ];
 
     if (process.env.NODE_ENV === 'development') {
-      if (origin && (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('10.0.2.2') || origin.includes('exp://'))) {
+      // In development, allow any localhost, 127.0.0.1, 10.0.2.2, exp://, or local network origins
+      if (origin && (
+        origin.includes('localhost') || 
+        origin.includes('127.0.0.1') || 
+        origin.includes('10.0.2.2') || 
+        origin.includes('192.168.1.') ||
+        origin.includes('exp://') ||
+        origin.includes('capacitor://') ||
+        origin.includes('http://192.168.')
+      )) {
         return callback(null, true);
       }
     }
