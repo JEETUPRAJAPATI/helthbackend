@@ -86,10 +86,24 @@ const unifiedLogin = asyncHandler(async (req, res) => {
 
   // Check password
   console.log('Checking password...');
+  console.log('Password provided length:', password.length);
+  console.log('Stored password hash (first 20 chars):', user.password ? user.password.substring(0, 20) + '...' : 'NO PASSWORD HASH');
+  
   let isPasswordValid = false;
   try {
     isPasswordValid = await user.matchPassword(password);
     console.log('Password valid:', isPasswordValid);
+    
+    // Additional debugging for failed password
+    if (!isPasswordValid) {
+      console.log('Password mismatch details:');
+      console.log('- Account type:', accountType);
+      console.log('- Email:', email);
+      console.log('- User ID:', user._id);
+      console.log('- Account created:', user.createdAt);
+      console.log('- Account updated:', user.updatedAt);
+      console.log('- Is account active:', user.isActive);
+    }
   } catch (error) {
     console.log('Error checking password:', error.message);
     isPasswordValid = false;

@@ -651,6 +651,8 @@ const resetPassword = asyncHandler(async (req, res) => {
   }
 
   // Set new password
+  console.log('Setting new password for expert:', expert.email);
+  console.log('New password length:', password.length);
   expert.password = password;
   expert.resetPasswordToken = undefined;
   expert.resetPasswordExpire = undefined;
@@ -660,6 +662,8 @@ const resetPassword = asyncHandler(async (req, res) => {
   expert.lockUntil = undefined;
 
   await expert.save();
+  console.log('Expert password reset completed and saved');
+  console.log('Expert updated at:', expert.updatedAt);
 
   // Generate new tokens
   const jwtToken = generateToken(expert._id, expert.userType);
