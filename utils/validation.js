@@ -430,10 +430,12 @@ const validate = (schema) => {
     const { error } = schema.validate(req.body, { abortEarly: false });
     if (error) {
       const errors = error.details.map(detail => detail.message);
+      const message = errors.join(', ');
       return res.status(400).json({
         success: false,
-        message: 'Validation error',
-        errors: errors
+        message: message,
+        errors: errors,
+        type: 'validation_error'
       });
     }
     next();

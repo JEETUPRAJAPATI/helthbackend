@@ -114,22 +114,38 @@ const registerUser = asyncHandler(async (req, res) => {
     // Handle validation errors
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map(val => val.message);
+      console.log('Validation errors:', messages);
       return res.status(400).json({
         success: false,
-        message: 'Validation error',
-        errors: messages
+        message: messages.join(', '),
+        errors: messages,
+        type: 'validation_error'
       });
     }
     
     // Handle duplicate key error
     if (error.code === 11000) {
       const field = Object.keys(error.keyValue)[0];
+      const message = `User with this ${field} already exists`;
+      console.log('Duplicate key error:', message);
       return res.status(400).json({
         success: false,
-        message: `User with this ${field} already exists`
+        message: message,
+        type: 'duplicate_error'
       });
     }
     
+    // Handle other known errors
+    if (error.message) {
+      console.log('Known error:', error.message);
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+        type: 'general_error'
+      });
+    }
+    
+    // Unknown error - let it be handled by global error handler
     throw error;
   }
 });
