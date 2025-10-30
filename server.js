@@ -153,6 +153,8 @@ const corsOptions = {
       'http://192.168.1.4:3001',
       'https://apiwellness.shrawantravels.com',
       'http://apiwellness.shrawantravels.com',
+      'https://adminwellness.shrawantravels.com',
+      'http://adminwellness.shrawantravels.com',
       'exp://localhost:8081',
       'exp://10.0.2.2:8081',
       'exp://192.168.1.4:8081'
