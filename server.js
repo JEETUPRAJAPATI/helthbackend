@@ -139,22 +139,38 @@ app.use(helmet({
 // CORS configuration
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
+    console.log('CORS request from origin:', origin);
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) {
+      console.log('No origin, allowing request');
+      return callback(null, true);
+    }
     
     const allowedOrigins = [
       ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(url => url.trim()) : []),
       'http://localhost:3000',
       'http://localhost:3001',
+      'http://localhost:8081',
+      'http://localhost:19000',
+      'http://localhost:19001',
+      'http://localhost:19002',
       'http://127.0.0.1:3000',
       'http://127.0.0.1:3001',
+      'http://127.0.0.1:8081',
+      'http://127.0.0.1:19000',
       'http://10.0.2.2:3001',
       'http://10.0.2.2:3000',
+      'http://10.0.2.2:8081',
+      'http://10.0.2.2:19000',
       'http://192.168.1.3:8081',
       'http://192.168.1.3:19000',
       'http://192.168.1.3:19001',
       'http://192.168.1.3:19002',
+      'http://192.168.1.3:3001',
       'http://192.168.1.4:8081',
       'http://192.168.1.4:3001',
+      'http://192.168.1.4:19000',
       'https://apiwellness.shrawantravels.com',
       'http://apiwellness.shrawantravels.com',
       'https://adminwellness.shrawantravels.com',
@@ -167,34 +183,55 @@ const corsOptions = {
       'exp://192.168.1.4:8081'
     ];
 
+    // In development, be more permissive
     if (process.env.NODE_ENV === 'development') {
-      // In development, allow any localhost, 127.0.0.1, 10.0.2.2, exp://, or local network origins
+      // Allow any localhost, 127.0.0.1, 10.0.2.2, exp://, or local network origins
       if (origin && (
         origin.includes('localhost') || 
         origin.includes('127.0.0.1') || 
         origin.includes('10.0.2.2') || 
-        origin.includes('192.168.1.') ||
+        origin.includes('192.168.') ||
         origin.includes('exp://') ||
         origin.includes('capacitor://') ||
-        origin.includes('http://192.168.')
+        origin.startsWith('http://192.168.') ||
+        origin.startsWith('https://192.168.')
       )) {
+        console.log('Development mode: allowing origin', origin);
         return callback(null, true);
       }
     }
 
+    // Check if origin is in allowed list
     if (allowedOrigins.indexOf(origin) !== -1) {
+      console.log('Origin found in allowed list:', origin);
       callback(null, true);
     } else {
+      console.log('Origin NOT allowed:', origin);
+      console.log('Allowed origins:', allowedOrigins);
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
   optionsSuccessStatus: 200,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 };
 
 app.use(cors(corsOptions));
+
+// Additional CORS headers for preflight requests
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET,HEAD,OPTIONS,POST,PUT,DELETE,PATCH');
+  res.header('Access-Control-Allow-Headers', 'Origin,X-Requested-With,Content-Type,Accept,Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
 
 // Compression middleware
 app.use(compression());
