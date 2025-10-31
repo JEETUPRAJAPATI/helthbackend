@@ -79,7 +79,8 @@ const seedDefaultPermissions = async () => {
       { key: 'manage_payments', label: 'Manage Payments' },
       { key: 'manage_subscriptions', label: 'Manage Subscriptions' },
       { key: 'view_reports', label: 'View Reports' },
-      { key: 'manage_settings', label: 'Manage Settings' }
+      { key: 'manage_settings', label: 'Manage Settings' },
+      { key: 'view_analytics', label: 'View Analytics' }
     ];
     
     for (const perm of defaultPermissions) {
@@ -91,36 +92,6 @@ const seedDefaultPermissions = async () => {
     }
   } catch (err) {
     console.error('Failed to seed default permissions:', err.message);
-  }
-};
-
-seedDefaultPermissions();
-
-// Seed default permissions
-const seedDefaultPermissions = async () => {
-  try {
-    const Permission = require('./models/Permission');
-    
-    const defaultPermissions = [
-      { key: 'manage_users', label: 'Manage Users' },
-      { key: 'manage_experts', label: 'Manage Experts' },
-      { key: 'manage_bookings', label: 'Manage Bookings' },
-      { key: 'manage_payments', label: 'Manage Payments' },
-      { key: 'view_reports', label: 'View Reports' },
-      { key: 'manage_settings', label: 'Manage Settings' },
-      { key: 'manage_admins', label: 'Manage Admins' },
-      { key: 'view_analytics', label: 'View Analytics' }
-    ];
-
-    for (const perm of defaultPermissions) {
-      const existing = await Permission.findOne({ key: perm.key });
-      if (!existing) {
-        await Permission.create(perm);
-        console.log(`Seeded permission: ${perm.key}`);
-      }
-    }
-  } catch (err) {
-    console.error('Failed to seed permissions:', err.message);
   }
 };
 
@@ -139,11 +110,12 @@ app.use(helmet({
 // CORS configuration
 const corsOptions = {
   origin: function (origin, callback) {
-    console.log('CORS request from origin:', origin);
+    console.log('🌐 CORS request from origin:', origin);
+    console.log('🔧 Environment:', process.env.NODE_ENV);
     
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) {
-      console.log('No origin, allowing request');
+      console.log('✅ No origin, allowing request');
       return callback(null, true);
     }
     
@@ -202,31 +174,52 @@ const corsOptions = {
     }
 
     // Check if origin is in allowed list
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      console.log('Origin found in allowed list:', origin);
+    const normalizedOrigin = origin.replace(/\/$/, ''); // Remove trailing slash
+    const isAllowed = allowedOrigins.some(allowedOrigin => 
+      allowedOrigin.replace(/\/$/, '') === normalizedOrigin
+    );
+    
+    if (isAllowed) {
+      console.log('✅ Origin found in allowed list:', origin);
       callback(null, true);
     } else {
-      console.log('Origin NOT allowed:', origin);
-      console.log('Allowed origins:', allowedOrigins);
-      callback(new Error('Not allowed by CORS'));
+      console.log('❌ Origin NOT allowed:', origin);
+      console.log('📋 Allowed origins:', allowedOrigins);
+      console.log('🔍 Normalized origin:', normalizedOrigin);
+      callback(new Error(`CORS: Origin ${origin} not allowed`));
     }
   },
   credentials: true,
   optionsSuccessStatus: 200,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
+  preflightContinue: false,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With', 
+    'Accept', 
+    'Origin',
+    'Cache-Control',
+    'X-Access-Token',
+    'X-HTTP-Method-Override'
+  ]
 };
 
 app.use(cors(corsOptions));
 
 // Additional CORS headers for preflight requests
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  const origin = req.headers.origin;
+  console.log(`🚀 ${req.method} request to ${req.path} from origin: ${origin}`);
+  
+  res.header('Access-Control-Allow-Origin', origin);
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Methods', 'GET,HEAD,OPTIONS,POST,PUT,DELETE,PATCH');
-  res.header('Access-Control-Allow-Headers', 'Origin,X-Requested-With,Content-Type,Accept,Authorization');
+  res.header('Access-Control-Allow-Headers', 'Origin,X-Requested-With,Content-Type,Accept,Authorization,Cache-Control,X-Access-Token');
+  res.header('Access-Control-Max-Age', '86400'); // 24 hours
   
   if (req.method === 'OPTIONS') {
+    console.log('✅ Handling OPTIONS preflight request');
     res.sendStatus(200);
   } else {
     next();
