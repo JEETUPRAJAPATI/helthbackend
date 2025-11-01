@@ -1,8 +1,8 @@
 const nodemailer = require('nodemailer');
 
-// Create reusable transporter object using SMTP
+// Create reusable transporter object using SMTP with connection pooling
 const createTransporter = () => {
-  return nodemailer.createTransport({
+  const transporter = nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
     port: process.env.EMAIL_PORT,
     secure: false, // true for 465, false for other ports
@@ -12,29 +12,103 @@ const createTransporter = () => {
     },
     tls: {
       rejectUnauthorized: false
+    },
+    // Performance optimizations for immediate delivery
+    pool: true,           // Use connection pool
+    maxConnections: 5,    // Max concurrent connections
+    maxMessages: 100,     // Max messages per connection
+    rateLimit: 14,        // Max emails per second
+    connectionTimeout: 60000,  // 60 seconds
+    greetingTimeout: 30000,    // 30 seconds
+    socketTimeout: 75000,      // 75 seconds
+    logger: false,        // Disable logging for better performance
+    debug: false          // Disable debug mode
+  });
+
+  // Verify connection configuration
+  transporter.verify((error, success) => {
+    if (error) {
+      console.error('❌ Email transporter verification failed:', error);
+    } else {
+      console.log('✅ Email server is ready to take our messages');
     }
   });
+
+  return transporter;
 };
 
-// Send email function
-const sendEmail = async (options) => {
+// Create a single transporter instance to reuse
+const emailTransporter = createTransporter();
+
+// Send email function with retry mechanism for guaranteed delivery
+const sendEmail = async (options, retryCount = 0) => {
+  const maxRetries = 3;
+  const startTime = Date.now();
+  
   try {
-    const transporter = createTransporter();
+    console.log(`📧 Sending email to: ${options.email} at ${new Date().toISOString()} (Attempt ${retryCount + 1})`);
 
     const mailOptions = {
       from: `"Wellness App" <${process.env.EMAIL_FROM}>`,
       to: options.email,
       subject: options.subject,
       html: options.html,
-      text: options.text
+      text: options.text,
+      // Priority settings for immediate delivery
+      priority: 'high',
+      headers: {
+        'X-Priority': '1',
+        'X-MSMail-Priority': 'High',
+        'Importance': 'high'
+      }
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Email sent successfully:', info.messageId);
-    return { success: true, messageId: info.messageId };
+    const info = await emailTransporter.sendMail(mailOptions);
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+    
+    console.log(`✅ Email sent successfully in ${duration}ms:`, info.messageId);
+    console.log(`📬 Email accepted by: ${info.accepted}`);
+    
+    return { 
+      success: true, 
+      messageId: info.messageId, 
+      duration: duration,
+      timestamp: new Date().toISOString(),
+      attempt: retryCount + 1
+    };
   } catch (error) {
-    console.error('Email sending failed:', error);
-    return { success: false, error: error.message };
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+    
+    console.error(`❌ Email sending failed after ${duration}ms (Attempt ${retryCount + 1}):`, error.message);
+    
+    // Retry logic for transient errors
+    if (retryCount < maxRetries && (
+      error.code === 'ECONNRESET' || 
+      error.code === 'ETIMEDOUT' || 
+      error.code === 'ENOTFOUND' ||
+      error.responseCode >= 400
+    )) {
+      console.log(`🔄 Retrying email in ${(retryCount + 1) * 2} seconds...`);
+      await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
+      return sendEmail(options, retryCount + 1);
+    }
+    
+    console.error('📧 Email details:', {
+      to: options.email,
+      subject: options.subject,
+      error: error.message,
+      finalAttempt: retryCount + 1
+    });
+    
+    return { 
+      success: false, 
+      error: error.message,
+      duration: duration,
+      timestamp: new Date().toISOString(),
+      attempts: retryCount + 1
+    };
   }
 };
 

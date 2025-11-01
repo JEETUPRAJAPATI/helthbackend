@@ -103,7 +103,13 @@ const forgotPassword = asyncHandler(async (req, res) => {
   await admin.save();
 
   // Send reset email
-  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+  const adminUrl = process.env.NODE_ENV === 'development' 
+    ? 'http://localhost:3000' 
+    : (process.env.ADMIN_URL || 'https://adminwellness.shrawantravels.com');
+  
+  const resetUrl = `${adminUrl}/reset-password?token=${resetToken}`;
+  
+  console.log('🔗 Generated reset URL for admin:', resetUrl);
   
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
@@ -147,6 +153,9 @@ const forgotPassword = asyncHandler(async (req, res) => {
   `;
 
   try {
+    console.log(`🚀 Attempting to send reset email to: ${admin.email}`);
+    console.log(`📧 Reset URL generated: ${resetUrl}`);
+    
     const emailResult = await sendEmail({
       email: admin.email,
       subject: 'Password Reset Request - Wellness App Admin',
@@ -154,17 +163,39 @@ const forgotPassword = asyncHandler(async (req, res) => {
     });
     
     if (emailResult.success) {
-      console.log(`Password reset email sent successfully to ${admin.email}, messageId: ${emailResult.messageId}`);
+      console.log(`✅ Password reset email sent successfully to ${admin.email}`);
+      console.log(`📨 Message ID: ${emailResult.messageId}`);
+      console.log(`⏱️ Email sent in: ${emailResult.duration}ms`);
+      console.log(`🕒 Sent at: ${emailResult.timestamp}`);
+      
+      res.status(200).json({
+        success: true,
+        message: 'Password reset email sent successfully',
+        emailDetails: {
+          sentAt: emailResult.timestamp,
+          duration: emailResult.duration,
+          messageId: emailResult.messageId
+        }
+      });
     } else {
-      console.error(`Failed to send password reset email to ${admin.email}:`, emailResult.error);
-      // Still clear the reset token if email fails
+      console.error(`❌ Failed to send password reset email to ${admin.email}:`);
+      console.error(`📧 Error: ${emailResult.error}`);
+      console.error(`⏱️ Failed after: ${emailResult.duration}ms`);
+      console.error(`🔄 Attempts made: ${emailResult.attempts}`);
+      
+      // Clear the reset token if email fails after all retries
       admin.resetPasswordToken = undefined;
       admin.resetPasswordExpiry = undefined;
       await admin.save();
-      return res.status(500).json({ success: false, message: 'Failed to send reset email. Please try again.' });
+      
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Failed to send reset email after multiple attempts. Please try again later.',
+        error: emailResult.error
+      });
     }
   } catch (err) {
-    console.error('Failed to send password reset email:', err.message);
+    console.error('❌ Unexpected error sending password reset email:', err.message);
     admin.resetPasswordToken = undefined;
     admin.resetPasswordExpiry = undefined;
     await admin.save();
