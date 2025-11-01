@@ -3,6 +3,7 @@ const User = require('../models/User');
 const { asyncHandler } = require('../middlewares/errorHandler');
 const { generateToken, generateRefreshToken } = require('../middlewares/auth');
 const { sendOTPEmail, sendPasswordResetEmail, sendWelcomeEmail } = require('../utils/emailService');
+const { checkEmailExists, checkPhoneExists } = require('../utils/emailValidation');
 
 // @desc    Register user
 // @route   POST /api/auth/register
@@ -35,25 +36,24 @@ const registerUser = asyncHandler(async (req, res) => {
 
   console.log('Processing registration for:', { firstName, lastName: finalLastName, email, phone });
 
-  // Check if user already exists
-  const existingUser = await User.findOne({
-    $or: [{ email }, { phone }]
-  });
+  // Check if email already exists in either User or Expert collection
+  const emailCheck = await checkEmailExists(email);
+  if (emailCheck.exists) {
+    console.log('Email already exists:', emailCheck.collection);
+    return res.status(400).json({
+      success: false,
+      message: emailCheck.message
+    });
+  }
 
-  if (existingUser) {
-    console.log('User already exists:', existingUser.email === email ? 'email' : 'phone');
-    if (existingUser.email === email) {
-      return res.status(400).json({
-        success: false,
-        message: 'User with this email already exists'
-      });
-    }
-    if (existingUser.phone === phone) {
-      return res.status(400).json({
-        success: false,
-        message: 'User with this phone number already exists'
-      });
-    }
+  // Check if phone already exists in either User or Expert collection
+  const phoneCheck = await checkPhoneExists(phone);
+  if (phoneCheck.exists) {
+    console.log('Phone already exists:', phoneCheck.collection);
+    return res.status(400).json({
+      success: false,
+      message: phoneCheck.message
+    });
   }
 
   try {

@@ -1,5 +1,6 @@
 const User = require('../../models/User');
 const { asyncHandler } = require('../../middlewares/errorHandler');
+const { checkEmailExists, checkPhoneExists } = require('../../utils/emailValidation');
 
 // Get user statistics
 const getUserStats = asyncHandler(async (req, res) => {
@@ -123,12 +124,12 @@ const createUser = asyncHandler(async (req, res) => {
     });
   }
   
-  // Check if user already exists
-  const existingUser = await User.findOne({ email });
-  if (existingUser) {
+  // Check if email already exists in either User or Expert collection
+  const emailCheck = await checkEmailExists(email);
+  if (emailCheck.exists) {
     return res.status(400).json({
       success: false,
-      message: 'User with this email already exists'
+      message: emailCheck.message
     });
   }
   
@@ -160,13 +161,13 @@ const updateUser = asyncHandler(async (req, res) => {
     });
   }
   
-  // Check if email is already taken by another user
+  // Check if email is already taken by another user or expert
   if (email && email !== user.email) {
-    const existingUser = await User.findOne({ email, _id: { $ne: req.params.id } });
-    if (existingUser) {
+    const emailCheck = await checkEmailExists(email);
+    if (emailCheck.exists) {
       return res.status(400).json({
         success: false,
-        message: 'Email is already taken'
+        message: emailCheck.message
       });
     }
   }

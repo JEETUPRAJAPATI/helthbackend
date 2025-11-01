@@ -4,6 +4,7 @@ const { asyncHandler } = require('../middlewares/errorHandler');
 const { generateToken, generateRefreshToken } = require('../middlewares/auth');
 const { sendOTPEmail, sendPasswordResetEmail, sendWelcomeEmail } = require('../utils/emailService');
 const { deleteFile, getFileUrl } = require('../middlewares/upload');
+const { checkEmailExists, checkPhoneExists } = require('../utils/emailValidation');
 
 // @desc    Register expert
 // @route   POST /api/experts/register
@@ -75,25 +76,24 @@ const registerExpert = asyncHandler(async (req, res) => {
     specialization 
   });
 
-  // Check if expert already exists
-  const existingExpert = await Expert.findOne({
-    $or: [{ email }, { phone }]
-  });
+  // Check if email already exists in either User or Expert collection
+  const emailCheck = await checkEmailExists(email);
+  if (emailCheck.exists) {
+    console.log('Email already exists:', emailCheck.collection);
+    return res.status(400).json({
+      success: false,
+      message: emailCheck.message
+    });
+  }
 
-  if (existingExpert) {
-    console.log('Expert already exists:', existingExpert.email === email ? 'email' : 'phone');
-    if (existingExpert.email === email) {
-      return res.status(400).json({
-        success: false,
-        message: 'Expert with this email already exists'
-      });
-    }
-    if (existingExpert.phone === phone) {
-      return res.status(400).json({
-        success: false,
-        message: 'Expert with this phone number already exists'
-      });
-    }
+  // Check if phone already exists in either User or Expert collection
+  const phoneCheck = await checkPhoneExists(phone);
+  if (phoneCheck.exists) {
+    console.log('Phone already exists:', phoneCheck.collection);
+    return res.status(400).json({
+      success: false,
+      message: phoneCheck.message
+    });
   }
 
   try {
