@@ -114,6 +114,15 @@ userSchema.virtual('isOTPLocked').get(function() {
   return !!(this.otpLockedUntil && this.otpLockedUntil > Date.now());
 });
 
+// Virtual for full name
+userSchema.virtual('name').get(function() {
+  return `${this.firstName} ${this.lastName}`.trim();
+});
+
+// Make sure virtual fields are included in JSON output
+userSchema.set('toJSON', { virtuals: true });
+userSchema.set('toObject', { virtuals: true });
+
 // Pre-save middleware to hash password
 userSchema.pre('save', async function(next) {
   // Only hash the password if it has been modified (or is new)

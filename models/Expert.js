@@ -226,6 +226,15 @@ expertSchema.virtual('fullName').get(function() {
   return `${this.firstName} ${this.lastName}`;
 });
 
+// Virtual for name (to match frontend expectations)
+expertSchema.virtual('name').get(function() {
+  return `${this.firstName} ${this.lastName}`.trim();
+});
+
+// Make sure virtual fields are included in JSON output
+expertSchema.set('toJSON', { virtuals: true });
+expertSchema.set('toObject', { virtuals: true });
+
 // Pre-save middleware to hash password
 expertSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();

@@ -17,6 +17,9 @@ const { errorHandler, notFound } = require('./middlewares/errorHandler');
 const authRoutes = require('./routes/authRoutes');
 const expertRoutes = require('./routes/expertRoutes');
 const adminRoutes = require('./routes/admin/adminRoutes');
+const userRoutes = require('./routes/admin/userRoutes');
+const adminExpertRoutes = require('./routes/admin/expertRoutes');
+const subscriptionRoutes = require('./routes/admin/subscriptionRoutes');
 
 // Connect to MongoDB
 connectDB();
@@ -271,6 +274,9 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/experts', expertRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin/users', userRoutes);
+app.use('/api/admin/experts', adminExpertRoutes);
+app.use('/api/admin/subscriptions', subscriptionRoutes);
 
 // Default route
 app.get('/', (req, res) => {
