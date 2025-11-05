@@ -101,9 +101,11 @@ const registerUser = asyncHandler(async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'User registered successfully. You can now log in.',
+      message: 'User registered successfully. You are now logged in.',
       data: {
         user,
+        userType: 'user',
+        accountType: 'User',
         token,
         refreshToken
       }

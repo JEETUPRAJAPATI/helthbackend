@@ -33,10 +33,10 @@ const userRegisterSchema = Joi.object({
     }),
   
   phone: Joi.string()
-    .pattern(/^[+]?[\d\s\-\(\)]{10,}$/)
+    .pattern(/^\d{10}$/)
     .required()
     .messages({
-      'string.pattern.base': 'Please enter a valid phone number',
+      'string.pattern.base': 'Phone number must be exactly 10 digits',
       'string.empty': 'Phone number is required'
     }),
   
@@ -59,20 +59,11 @@ const userRegisterSchema = Joi.object({
 
 // Expert registration validation
 const expertRegisterSchema = Joi.object({
-  // Accept either fullName OR firstName/lastName
-  fullName: Joi.string()
-    .trim()
-    .min(2)
-    .max(100)
-    .messages({
-      'string.empty': 'Full name is required',
-      'string.min': 'Full name must be at least 2 characters long'
-    }),
-    
   firstName: Joi.string()
     .trim()
     .min(2)
     .max(50)
+    .required()
     .messages({
       'string.empty': 'First name is required',
       'string.min': 'First name must be at least 2 characters long'
@@ -82,6 +73,7 @@ const expertRegisterSchema = Joi.object({
     .trim()
     .min(2)
     .max(50)
+    .required()
     .messages({
       'string.empty': 'Last name is required',
       'string.min': 'Last name must be at least 2 characters long'
@@ -96,10 +88,10 @@ const expertRegisterSchema = Joi.object({
     }),
   
   phone: Joi.string()
-    .pattern(/^[+]?[\d\s\-\(\)]{10,}$/)
+    .pattern(/^\d{10}$/)
     .required()
     .messages({
-      'string.pattern.base': 'Please enter a valid phone number',
+      'string.pattern.base': 'Phone number must be exactly 10 digits',
       'string.empty': 'Phone number is required'
     }),
   
@@ -167,14 +159,8 @@ const expertRegisterSchema = Joi.object({
   consultationMethods: Joi.array()
     .items(Joi.string().valid('video', 'audio', 'chat', 'in-person'))
     .optional()
-}).custom((value, helpers) => {
-  // Custom validation: require either fullName OR (firstName AND lastName)
-  if (!value.fullName && (!value.firstName || !value.lastName)) {
-    return helpers.error('any.custom', {
-      message: 'Either fullName or both firstName and lastName are required'
-    });
-  }
-  return value;
+}).messages({
+  'object.base': 'Please provide valid registration data'
 });
 
 // Login validation

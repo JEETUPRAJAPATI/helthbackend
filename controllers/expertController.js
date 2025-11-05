@@ -15,7 +15,6 @@ const registerExpert = asyncHandler(async (req, res) => {
   console.log('Request file:', req.file);
   
   const {
-    fullName,
     firstName,
     lastName,
     email,
@@ -30,30 +29,21 @@ const registerExpert = asyncHandler(async (req, res) => {
     consultationMethods
   } = req.body;
 
-  // Handle fullName or firstName/lastName
-  let finalFirstName, finalLastName;
-  if (fullName) {
-    const nameParts = fullName.trim().split(' ');
-    finalFirstName = nameParts[0] || '';
-    finalLastName = nameParts.slice(1).join(' ') || finalFirstName;
-  } else {
-    finalFirstName = firstName || '';
-    finalLastName = lastName || finalFirstName;
-  }
-
   // Detailed field validation logging
   console.log('Field validation check:');
-  console.log('fullName:', fullName, 'finalFirstName:', finalFirstName, 'finalLastName:', finalLastName);
+  console.log('firstName:', firstName, 'type:', typeof firstName, 'valid:', !!firstName);
+  console.log('lastName:', lastName, 'type:', typeof lastName, 'valid:', !!lastName);
   console.log('email:', email, 'type:', typeof email, 'valid:', !!email);
   console.log('phone:', phone, 'type:', typeof phone, 'valid:', !!phone);
   console.log('password:', password, 'type:', typeof password, 'valid:', !!password);
   console.log('specialization:', specialization, 'type:', typeof specialization, 'valid:', !!specialization);
 
   // Input validation - only require essential fields
-  if (!finalFirstName || !email || !phone || !password || !specialization) {
+  if (!firstName || !email || !phone || !password || !specialization) {
     console.log('Validation error: Missing required fields');
     const missingFields = [];
-    if (!finalFirstName) missingFields.push('fullName');
+    if (!firstName) missingFields.push('firstName');
+    if (!lastName) missingFields.push('lastName');
     if (!email) missingFields.push('email');
     if (!phone) missingFields.push('phone');
     if (!password) missingFields.push('password');
@@ -65,12 +55,9 @@ const registerExpert = asyncHandler(async (req, res) => {
     });
   }
 
-  // If lastName is not provided, use firstName as lastName
-  const processedLastName = finalLastName || finalFirstName;
-
   console.log('Processing expert registration for:', { 
-    firstName: finalFirstName, 
-    lastName: processedLastName, 
+    firstName, 
+    lastName: lastName || firstName, 
     email, 
     phone, 
     specialization 
@@ -149,8 +136,8 @@ const registerExpert = asyncHandler(async (req, res) => {
     }
 
     console.log('Creating expert with data:', {
-      firstName: finalFirstName,
-      lastName: processedLastName,
+      firstName,
+      lastName: lastName || firstName,
       email,
       phone,
       specialization,
@@ -160,8 +147,8 @@ const registerExpert = asyncHandler(async (req, res) => {
 
     console.log('=== FULL EXPERT DATA BEFORE CREATE ===');
     const expertData = {
-      firstName: finalFirstName,
-      lastName: processedLastName,
+      firstName,
+      lastName: lastName || firstName,
       email,
       phone,
       password,
@@ -205,9 +192,11 @@ const registerExpert = asyncHandler(async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Expert registered successfully. You can now login immediately.',
+      message: 'Expert registered successfully. You are now logged in.',
       data: {
-        expert,
+        user: expert,
+        userType: 'expert',
+        accountType: 'Expert',
         token,
         refreshToken,
         canLoginImmediately: true

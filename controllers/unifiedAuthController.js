@@ -148,12 +148,37 @@ const unifiedLogin = asyncHandler(async (req, res) => {
   }
 
   console.log('Login completed successfully for:', accountType);
+  console.log('User data being sent:', {
+    id: user._id,
+    email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    phone: user.phone,
+    userType: userType,
+    accountType: accountType
+  });
 
   res.status(200).json({
     success: true,
     message: `${accountType} login successful`,
     data: {
-      user,
+      user: {
+        id: user._id.toString(),
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phone: user.phone,
+        userType: userType,
+        isEmailVerified: user.isEmailVerified,
+        profileImage: user.profileImage,
+        // Add additional fields for experts
+        ...(userType === 'expert' && {
+          specialization: user.specialization,
+          experience: user.experience,
+          rating: user.rating,
+          verificationStatus: user.verificationStatus
+        })
+      },
       userType,
       accountType,
       token,
